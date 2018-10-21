@@ -52,9 +52,8 @@ def visualJTheta(diff_value):
     plt.plot(p_x, p_y, 'b', label="difference function")
     plt.show()
     x = np.linspace(0, p_x[len(p_x) - 1], len(p_x))
+
 # 可视化
-
-
 def visualization(theta, sample_training_set):
     fig = plt.figure()
     ax = Axes3D(fig)
@@ -68,7 +67,6 @@ def visualization(theta, sample_training_set):
     ax.scatter(x, y, z, c='b')  # 绘制数据点
     X, Y = np.meshgrid(sample_training_set[:, 1], sample_training_set[:, 2])
     Z = theta[0] + theta[1]*X + theta[2]*Y
-
     ax = fig.gca(projection='3d')
     surf = ax.plot_surface(X, Y, Z, color='g')
     plt.show()

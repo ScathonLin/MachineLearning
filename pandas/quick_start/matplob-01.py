@@ -78,5 +78,5 @@ plt.show()
 
 arr = np.arange(0., 5, 0.2)
 # 可以直接画出三条线，每条线的参数格式就是：x,y,linetype
-plt.plot(arr, arr, 'r--', arr, arr ** 2, 'bs', arr, arr ** 3, 'g<^')
+plt.plot(arr, arr, 'r--', arr, arr ** 2, 'bs', arr, arr ** 3, 'g^')
 plt.show()

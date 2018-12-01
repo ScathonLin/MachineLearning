@@ -1,8 +1,5 @@
-import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import cm
-
+import numpy as np
 
 '''
  加载训练数据
@@ -11,7 +8,7 @@ from matplotlib import cm
 
 def load_data():
     oridata = np.loadtxt(
-        'F:\MachineLearn\ML_Algorithm_Impl\LogisticsRegression\data\V1_sample.txt', delimiter=',')
+        'F:\MachineLearn\ML_Algorithm_Impl\LogisticsRegression\data\ml_in_action.txt', delimiter='\t')
     return np.hstack((np.ones((oridata.shape[0], 1)), oridata))
 
 
@@ -32,6 +29,7 @@ def get_sigmoid_func_value(theta_matrix, dataset_X):
 
 def generate_gradient(record_count, theta_matrix, dataset_X, dataset_y):
     return (1/record_count)*dataset_X.T.dot(get_sigmoid_func_value(theta_matrix, dataset_X)-dataset_y)
+    # return dataset_X.T.dot(get_sigmoid_func_value(theta_matrix, dataset_X)-dataset_y)
 
 
 """ 采集计算过程中代价函数的趋势，绘图展示代价函数的走向，判断梯度下降运行是否正确 """
@@ -49,7 +47,7 @@ def classification_kernal(dataset_X, dataset_y, theta_matrix):
     alpha = 0.001
     loop = 0
     # while not np.all(np.absolute(gradient) <= 1e-2):
-    while loop < 5000:
+    while loop < 50000:
         theta_matrix = theta_matrix-alpha*gradient
         gradient = generate_gradient(
             record_count, theta_matrix, dataset_X, dataset_y)

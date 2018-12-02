@@ -19,7 +19,7 @@ def load_data():
 
 def get_sigmoid_func_value(theta_matrix, dataset_X):
     # print(1.0/(1.0+np.exp(-dataset_X.dot(theta_matrix))))
-    return 1.0/(1.0+np.exp(-dataset_X.dot(theta_matrix)))
+    return 1.0 / (1.0 + np.exp(-dataset_X.dot(theta_matrix)))
 
 
 """ 
@@ -28,7 +28,7 @@ def get_sigmoid_func_value(theta_matrix, dataset_X):
 
 
 def generate_gradient(record_count, theta_matrix, dataset_X, dataset_y):
-    return (1/record_count)*dataset_X.T.dot(get_sigmoid_func_value(theta_matrix, dataset_X)-dataset_y)
+    return (1 / record_count) * dataset_X.T.dot(get_sigmoid_func_value(theta_matrix, dataset_X) - dataset_y)
     # return dataset_X.T.dot(get_sigmoid_func_value(theta_matrix, dataset_X)-dataset_y)
 
 
@@ -37,7 +37,7 @@ def generate_gradient(record_count, theta_matrix, dataset_X, dataset_y):
 
 def generate_cost_value(dataset_X, dataset_y, theta_matrix):
     sigmoid = get_sigmoid_func_value(theta_matrix, dataset_X)
-    return -1*dataset_y.T.dot(np.log(sigmoid))-(1-dataset_y).T.dot(np.log(1-sigmoid))
+    return -1 * dataset_y.T.dot(np.log(sigmoid)) - (1 - dataset_y).T.dot(np.log(1 - sigmoid))
 
 
 def classification_kernal(dataset_X, dataset_y, theta_matrix):
@@ -48,7 +48,7 @@ def classification_kernal(dataset_X, dataset_y, theta_matrix):
     loop = 0
     # while not np.all(np.absolute(gradient) <= 1e-2):
     while loop < 50000:
-        theta_matrix = theta_matrix-alpha*gradient
+        theta_matrix = theta_matrix - alpha * gradient
         gradient = generate_gradient(
             record_count, theta_matrix, dataset_X, dataset_y)
         # print(gradient)
@@ -92,9 +92,9 @@ def visualization(theta_matrix, dataset_X, dataset_y):
 
 def classification_entrance():
     training_data = load_data()
-    ori_theta_matrix = np.ones((training_data.shape[1]-1, 1))
-    dataset_X = training_data[:, 0:training_data.shape[1]-1]
-    dataset_y = training_data[:, training_data.shape[1]-1:]
+    ori_theta_matrix = np.ones((training_data.shape[1] - 1, 1))
+    dataset_X = training_data[:, 0:training_data.shape[1] - 1]
+    dataset_y = training_data[:, training_data.shape[1] - 1:]
     result_theta = classification_kernal(
         dataset_X, dataset_y, ori_theta_matrix)
     visualization(result_theta, dataset_X, dataset_y)

@@ -7,7 +7,7 @@ import Jama.Matrix;
  */
 public class BinaryLogisticsRegression extends AbstractLogisticRegression {
     public static void main(String[] args) {
-        LRConfiguration.DATA_FILE_NAME = "binary_classfication_data.txt";
+        LRConfiguration.DATA_FILE_NAME = "ml_in_action_lr.txt";
         LRConfiguration.LEARNING_STEP = 0.001;
         LRConfiguration.MAX_CYCLE_TIMES = 50000;
         LRConfiguration.LINE_SPLIT_SEPARATOR = "\t";
@@ -19,7 +19,7 @@ public class BinaryLogisticsRegression extends AbstractLogisticRegression {
 
     private static int getClassficationDiff(Matrix xMatrix, Matrix yMatrix, Matrix theta) {
         int row = xMatrix.getRowDimension();
-        int count = 0; 
+        int count = 0;
         for (int i = 0; i < row; i++) {
             double v = xMatrix.getMatrix(i, i, 0, xMatrix.getColumnDimension() - 1).times(theta).get(0, 0);
             double s = 1 / (1 + Math.exp(-v));

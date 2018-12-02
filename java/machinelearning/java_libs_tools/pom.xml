@@ -18,17 +18,31 @@
     </properties>
 
     <dependencies>
+        <!-- https://mvnrepository.com/artifact/org.ujmp/ujmp-core -->
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.12</version>
-            <scope>test</scope>
+            <groupId>org.ujmp</groupId>
+            <artifactId>ujmp-core</artifactId>
+            <version>0.3.0</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.ujmp/ujmp-gui -->
+        <dependency>
+            <groupId>org.ujmp</groupId>
+            <artifactId>ujmp-gui</artifactId>
+            <version>0.3.0</version>
+        </dependency>
+
         <!-- https://mvnrepository.com/artifact/gov.nist.math/jama -->
         <dependency>
             <groupId>gov.nist.math</groupId>
             <artifactId>jama</artifactId>
             <version>1.0.3</version>
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

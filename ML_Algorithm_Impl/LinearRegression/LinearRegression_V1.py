@@ -64,8 +64,7 @@ def visualization(theta, sample_training_set):
     ax.set_xlabel('X', color='r')
     ax.set_ylabel('Y', color='g')
     ax.set_zlabel('Z', color='b')
-    x, y, z = sample_training_set[:,
-              1], sample_training_set[:, 2], sample_training_set[:, 3]
+    x, y, z = sample_training_set[:, 1], sample_training_set[:, 2], sample_training_set[:, 3]
     ax.scatter(x, y, z, c='b')  # 绘制数据点
     X, Y = np.meshgrid(sample_training_set[:, 1], sample_training_set[:, 2])
     Z = theta[0] + theta[1] * X + theta[2] * Y

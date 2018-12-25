@@ -177,8 +177,13 @@ public class LouvainCommunityDiscovery {
             }
             subNodeIds.stream()
                     .map(oldNodeMap::get)
-                    .forEach(node -> node.getEdges()
-                            .forEach(edge -> neighborNodeComBelongTo.add(communities.get(edge.getTo()))));
+                    .forEach(node -> node.getEdges().forEach(edge -> {
+                        int neighborComId = communities.get(edge.getTo());
+                        int selfComId = communities.get(node.getNodeIndex());
+                        if (neighborComId != selfComId) {
+                            neighborNodeComBelongTo.add(communities.get(edge.getTo()));
+                        }
+                    }));
             int newNodeId = oldAndNewComIdMap.get(curCom.getComId());
             Node newNode = newNodeMap.get(newNodeId);
             if (newNode.getEdges() == null) {

@@ -27,8 +27,10 @@ public class LouvainCommunityDiscovery {
     private static double ALL_EDGE_WEIGHT_SUM = 0;
 
     public static void main(String[] args) {
+        long start = System.currentTimeMillis();
         loadData();
         kernel();
+        System.out.println(System.currentTimeMillis() - start);
     }
 
     private static void kernel() {
@@ -49,6 +51,57 @@ public class LouvainCommunityDiscovery {
 
     }
 
+    private static void firstPhase(List<Integer> communities,
+                                   Map<Community, Set<Integer>> communityDistribution, Map<Integer, Node> nodesMap) {
+        boolean flag = true;
+        while (flag) {
+            int count = 0;
+            List<Integer> nodeIdList = new ArrayList<>(nodesMap.keySet());
+            Collections.shuffle(nodeIdList);
+            for (Integer nodeId : nodeIdList) {
+                Node nodeChoiced = nodesMap.get(nodeId);
+                Set<Integer> neighborsSet = new HashSet<>();
+                nodeChoiced.getEdges().forEach(edge -> {
+                    int neighborNodeId = edge.getTo();
+                    int neighborComId = communities.get(neighborNodeId);
+                    if (neighborComId != communities.get(nodeId)) {
+                        neighborsSet.add(neighborNodeId);
+                    }
+                });
+                // 计算模块度增量.
+                String complexMaxDeltaQ = neighborsSet.stream()
+                        .map(neighborNodeId -> {
+                            int neighborBelongComId = communities.get(neighborNodeId);
+                            double deltaQ = calculateDeltaQ(nodeChoiced, neighborBelongComId, communityDistribution,
+                                    nodesMap);
+                            return String.valueOf(deltaQ) + "," + neighborNodeId;
+                        })
+                        .filter(complexDeltaQ -> Double.parseDouble(complexDeltaQ.split(",")[0]) > 0)
+                        .max(Comparator.comparing(complexDeltaQ -> complexDeltaQ.split(",")[0]))
+                        .orElse(null);
+                if (complexMaxDeltaQ != null) {
+                    // 社区移动
+                    int targetNeighborNodeId = Integer.parseInt(complexMaxDeltaQ.split(",")[1]);
+                    int targetComId = communities.get(targetNeighborNodeId);
+                    Set<Integer> targetComNodes =
+                            communityDistribution.get(Community.builder().comId(targetComId).build());
+                    targetComNodes.add(nodeId);
+                    updateTargetCom(nodeId, targetNeighborNodeId, nodesMap, communityDistribution, communities);
+                    updateBeMergeCom(nodeChoiced, communityDistribution, communities, targetNeighborNodeId);
+                    int selfComId = communities.get(nodeId);
+                    communityDistribution.get(Community.builder().comId(selfComId).build()).remove(nodeId);
+                    communities.set(nodeId, targetComId);
+                    count++;
+                }
+            }
+            if (count < 4) {
+                flag = false;
+            }
+        }
+        Map<Integer, Node> integerNodeMap = compressMap(communityDistribution, nodesMap, communities);
+        System.out.println(integerNodeMap);
+    }
+
     /**
      * Louvain算法的第一阶段结束之后，图的压缩过程，将社区中的点合并成一个超节点.
      *
@@ -63,7 +116,42 @@ public class LouvainCommunityDiscovery {
         Map<Integer, Integer> oldAndNewComIdMap = new HashMap<>(1 << 4);
         generateSigmaInAfterCompress(newNodeMap, communityDistribution, oldNodeMap, oldAndNewComIdMap);
         generateEdgeAfterCompress(newNodeMap, communityDistribution, oldNodeMap, oldAndNewComIdMap, communities);
-        return null;
+        return newNodeMap;
+    }
+
+    /**
+     * 计算稳定社区内部的边的之间的权重之和.
+     *
+     * @param newNodeMap            新的节点集合.
+     * @param communityDistribution 节点在社区的分布情况.
+     * @param oldNodeMap            旧的节点集合.
+     * @param oldAndNewComIdMap     旧社区的id与压缩之后的新节点的id之间的映射关系.
+     */
+    private static void generateSigmaInAfterCompress(Map<Integer, Node> newNodeMap,
+                                                     Map<Community, Set<Integer>> communityDistribution,
+                                                     Map<Integer, Node> oldNodeMap,
+                                                     Map<Integer, Integer> oldAndNewComIdMap) {
+        int initNodeId = 0;
+        for (Map.Entry<Community, Set<Integer>> entry : communityDistribution.entrySet()) {
+            Set<Integer> subNodeIds = entry.getValue();
+            if (subNodeIds.size() == 0) {
+                continue;
+            }
+            int newNodeId = initNodeId++;
+            Node newNode = Node.builder().nodeIndex(newNodeId).build();
+            // 计算社区内部节点之间的边的权重之和，作为超节点的环值.
+            int sigmaIn = subNodeIds.stream()
+                    .map(oldNodeMap::get)
+                    .map(node -> node.getEdges().stream()
+                            .filter(edge -> subNodeIds.contains(edge.getTo()))
+                            .map(Edge::getWeight)
+                            .reduce(FunctionsHolder.addTwoInt)
+                            .orElse(0))
+                    .reduce(FunctionsHolder.addTwoInt).orElse(0);
+            newNode.setSigmaIn(sigmaIn);
+            newNodeMap.put(newNodeId, newNode);
+            oldAndNewComIdMap.put(entry.getKey().getComId(), newNodeId);
+        }
     }
 
     /**
@@ -84,15 +172,24 @@ public class LouvainCommunityDiscovery {
             Community curCom = entry.getKey();
             Set<Integer> subNodeIds = entry.getValue();
             Set<Integer> neighborNodeComBelongTo = new HashSet<>();
+            if (subNodeIds.size() == 0) {
+                continue;
+            }
             subNodeIds.stream()
                     .map(oldNodeMap::get)
                     .forEach(node -> node.getEdges()
                             .forEach(edge -> neighborNodeComBelongTo.add(communities.get(edge.getTo()))));
             int newNodeId = oldAndNewComIdMap.get(curCom.getComId());
             Node newNode = newNodeMap.get(newNodeId);
+            if (newNode.getEdges() == null) {
+                newNode.setEdges(new HashSet<>());
+            }
             neighborNodeComBelongTo.forEach(neighComId -> {
                 int newNeighborNodeId = oldAndNewComIdMap.get(neighComId);
                 Node neighborNode = newNodeMap.get(newNeighborNodeId);
+                if (neighborNode.getEdges() == null) {
+                    neighborNode.setEdges(new HashSet<>());
+                }
                 int newWeight = communityDistribution.get(Community.builder().comId(neighComId).build()).stream()
                         .map(oldNodeMap::get)
                         .map(node -> node.getEdges().stream()
@@ -107,83 +204,6 @@ public class LouvainCommunityDiscovery {
         }
     }
 
-    /**
-     * 计算稳定社区内部的边的之间的权重之和.
-     *
-     * @param newNodeMap            新的节点集合.
-     * @param communityDistribution 节点在社区的分布情况.
-     * @param oldNodeMap            旧的节点集合.
-     * @param oldAndNewComIdMap     旧社区的id与压缩之后的新节点的id之间的映射关系.
-     */
-    private static void generateSigmaInAfterCompress(Map<Integer, Node> newNodeMap,
-                                                     Map<Community, Set<Integer>> communityDistribution,
-                                                     Map<Integer, Node> oldNodeMap,
-                                                     Map<Integer, Integer> oldAndNewComIdMap) {
-        int initNodeId = 0;
-        for (Map.Entry<Community, Set<Integer>> entry : communityDistribution.entrySet()) {
-            int newNodeId = initNodeId++;
-            Node newNode = Node.builder().nodeIndex(newNodeId).build();
-            Set<Integer> subNodeIds = entry.getValue();
-            // 计算社区内部节点之间的边的权重之和，作为超节点的环值.
-            int sigmaIn = subNodeIds.stream()
-                    .map(oldNodeMap::get)
-                    .map(node -> node.getEdges().stream()
-                            .filter(edge -> subNodeIds.contains(edge.getTo()))
-                            .map(Edge::getWeight)
-                            .reduce(FunctionsHolder.addTwoInt)
-                            .orElse(0))
-                    .reduce(FunctionsHolder.addTwoInt).orElse(0);
-            newNode.setSigmaIn(sigmaIn);
-            newNodeMap.put(newNodeId, newNode);
-            oldAndNewComIdMap.put(entry.getKey().getComId(), newNodeId);
-        }
-    }
-
-    private static void firstPhase(List<Integer> communities,
-                                   Map<Community, Set<Integer>> communityDistribution, Map<Integer, Node> nodesMap) {
-        boolean flag = true;
-        while (flag) {
-            int count = 0;
-            List<Integer> nodeIdList = new ArrayList<>(nodesMap.keySet());
-            Collections.shuffle(nodeIdList);
-            for (Integer nodeId : nodeIdList) {
-                Node nodeChoiced = nodesMap.get(nodeId);
-                Set<Integer> neighborsSet = new HashSet<>();
-                nodeChoiced.getEdges().forEach(edge -> {
-                    int to = edge.getTo();
-                    int neighborComId = communities.get(to);
-                    if (neighborComId != communities.get(nodeId)) {
-                        neighborsSet.add(neighborComId);
-                    }
-                });
-                // 计算模块度增量.
-                String complexMaxDeltaQ = neighborsSet.stream()
-                        .map(neighborBelongComId -> {
-                            double deltaQ = calculateDeltaQ(nodeChoiced, neighborBelongComId, communityDistribution,
-                                    nodesMap);
-                            return String.valueOf(deltaQ) + "," + neighborBelongComId;
-                        })
-                        .filter(complexDeltaQ -> Double.parseDouble(complexDeltaQ.split(",")[0]) > 0)
-                        .max(Comparator.comparing(complexDeltaQ -> complexDeltaQ.split(",")[0]))
-                        .orElse(null);
-                if (complexMaxDeltaQ != null) {
-                    // 社区移动
-                    int targetComId = Integer.parseInt(complexMaxDeltaQ.split(",")[1]);
-                    Set<Integer> targetComNodes =
-                            communityDistribution.get(Community.builder().comId(targetComId).build());
-                    targetComNodes.add(nodeId);
-                    int selfComId = communities.get(nodeId);
-                    communityDistribution.get(Community.builder().comId(selfComId).build()).remove(nodeId);
-                    communities.set(nodeId, targetComId);
-                    count++;
-                }
-            }
-            if (count < 3) {
-                flag = false;
-            }
-        }
-    }
-
     private static double calculateDeltaQ(Node curNode, Integer neighborBelongComId,
                                           Map<Community, Set<Integer>> communityDistribution,
                                           Map<Integer, Node> nodesMap) {
@@ -195,8 +215,10 @@ public class LouvainCommunityDiscovery {
                 .get(0);
         int kiComIn = calculateKiCommaIn(curNode, targetCom, nodesMap, communityDistribution);
         int sigmaTot = calculateSigmaTot(targetCom, nodesMap, communityDistribution);
+        //int sigmaTot = targetCom.getSigmaTot();
+        // TODO 记住这一步在重构图的时候，要进行ki的值的设置，在每轮的迭代计算中，这个值是不变的，不用重复计算.
         int ki = curNode.getKi();
-        return (1 / (2 * ALL_EDGE_WEIGHT_SUM)) * (kiComIn - sigmaTot * ki * 1.0 / ALL_EDGE_WEIGHT_SUM);
+        return (1.0 / (2 * ALL_EDGE_WEIGHT_SUM)) * (kiComIn - sigmaTot * ki * 1.0 / ALL_EDGE_WEIGHT_SUM);
     }
 
     private static int calculateSigmaTot(Community targetCom, Map<Integer, Node> nodesMap,
@@ -236,36 +258,44 @@ public class LouvainCommunityDiscovery {
                 .orElse(0);
     }
 
-    private static void updateBeMergeCom(Node node, Map<Community, Set<Integer>> communityRelation,
-                                         List<Integer> communities) {
+    /**
+     * 更新被移除的节点原来归属于的社区的代表节点的信息.
+     *
+     * @param node                  被移除的节点.
+     * @param communityDistribution 节点在社区中的分布情况.
+     * @param communities           存储节点与社区之间的归属关系.
+     * @param neighborNodeId        邻居节点的id.
+     */
+    private static void updateBeMergeCom(Node node, Map<Community, Set<Integer>> communityDistribution,
+                                         List<Integer> communities, int neighborNodeId) {
         int nodeId = node.getNodeIndex();
-        Community selfCom = getCommunityByNodeId(nodeId, communities, communityRelation);
-        int sigmaIn = selfCom.getSigmaIn() - 2 - node.getSigmaIn();
-        System.out.println(sigmaIn);
-        int sigmaTot = selfCom.getSigmaTot() + 2 - node.getSigmaTot();
-        System.out.println(sigmaTot);
+        Community selfCom = getCommunityByNodeId(nodeId, communities, communityDistribution);
+        int edgeWeight = node.getEdges().stream()
+                .filter(edge -> edge.getTo() == neighborNodeId)
+                .map(Edge::getWeight).findFirst().get();
+        int sigmaIn = selfCom.getSigmaIn() - edgeWeight * 2 - node.getSigmaIn();
+        int sigmaTot = selfCom.getSigmaTot() + edgeWeight * 2 - node.getSigmaTot();
         selfCom.setSigmaIn(sigmaIn >= 0 ? sigmaIn : 0)
-                .setSigmaTot(sigmaTot >= 0 ? sigmaTot : 0)
-                .setKi(selfCom.getSigmaIn() + selfCom.getSigmaTot());
-        System.out.println(selfCom.getKi());
-        System.out.println("============");
+                .setSigmaTot(sigmaTot >= 0 ? sigmaTot : 0);
     }
 
     /**
      * 更新社区代表节点的权值信息，用该点代表整个社区的边的权值分布.
      *
-     * @param nodeToMerge       将被合并到目标社区的节点id.
-     * @param neighborNodeId    社区核心节点id.
-     * @param nodesMap          节点映射集合.
-     * @param communityRelation
+     * @param nodeToMerge           将被合并到目标社区的节点id.
+     * @param neighborNodeId        邻居节点id.
+     * @param nodesMap              节点映射集合.
+     * @param communityDistribution 节点在社区中的分布情况.
      */
     private static void updateTargetCom(int nodeToMerge, int neighborNodeId, Map<Integer, Node> nodesMap,
-                                        Map<Community, Set<Integer>> communityRelation, List<Integer> communities) {
+                                        Map<Community, Set<Integer>> communityDistribution, List<Integer> communities) {
         Node mergedNode = nodesMap.get(nodeToMerge);
-        Community targetCom = getCommunityByNodeId(neighborNodeId, communities, communityRelation);
-        targetCom.setSigmaIn(targetCom.getSigmaIn() + mergedNode.getSigmaIn() + 2)
-                .setSigmaTot(targetCom.getSigmaTot() + mergedNode.getSigmaTot() - 2)
-                .setKi(targetCom.getKi() + mergedNode.getKi());
+        Community targetCom = getCommunityByNodeId(neighborNodeId, communities, communityDistribution);
+        int edgeWeight = mergedNode.getEdges().stream()
+                .filter(edge -> edge.getTo() == neighborNodeId)
+                .map(Edge::getWeight).findFirst().get();
+        targetCom.setSigmaIn(targetCom.getSigmaIn() + mergedNode.getSigmaIn() + edgeWeight * 2)
+                .setSigmaTot(targetCom.getSigmaTot() + mergedNode.getSigmaTot() - edgeWeight * 2);
     }
 
     private static Community getCommunityByNodeId(int nodeId, List<Integer> communities,
@@ -327,7 +357,7 @@ public class LouvainCommunityDiscovery {
     }
 
     private static Map<Community, Set<Integer>> buildCommunityRelation(Map<Integer, Node> nodeMap) {
-        Map<Community, Set<Integer>> communityRelation = new HashMap<>();
+        Map<Community, Set<Integer>> communityRelation = new HashMap<>(1 << 4);
         nodeMap.forEach((k, v) -> {
             Set<Integer> subNodeIds = new HashSet<>();
             subNodeIds.add(k);

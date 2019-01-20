@@ -1,9 +1,7 @@
 # 线性规划梯度下降算法Version1
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import cm
-from numpy import random
 
 
 # 计算梯度向量
@@ -44,7 +42,7 @@ def gradient_descend_kernal(X, theta, y, step):
     return theta
 
 
-def visualJTheta(diff_value):
+def visual_j_theta(diff_value):
     p_x = []
     p_y = []
     for (index, sum) in diff_value:
@@ -81,7 +79,7 @@ def app_main():
     theta = init_theta(feature_count)
     result_theta = gradient_descend_kernal(training_sample, theta, y, step)
     print(result_theta)
-    visualJTheta(diff_value)
+    visual_j_theta(diff_value)
     visualization(result_theta, training_sample_include_y)
 
 

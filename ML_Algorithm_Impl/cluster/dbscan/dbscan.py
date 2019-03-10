@@ -39,29 +39,42 @@ class DBScan:
         # 数据集.
         self.data_point_list = self.load_data()
 
+    # dbscan 核心执行逻辑.
     def exec_kernel(self):
         logger.info("start exec dbscan kernel process....")
         core_data_points_list = self.find_core_data_points(self.data_point_list)
+        # 打乱所有的核心点的顺序
         random.shuffle(core_data_points_list)
         cluster_index = 0
+        # 遍历核心点，这里因为是打乱顺序后的核心点，所以相当于随机选了一个核心点开始迭代计算.
         for core_datapoint in core_data_points_list:
+            # 如果核心点已经被访问了，那么跳过本次迭代计算.
             if core_datapoint.visited:
                 continue
+            # 初始化一个空队列，将随机选择的核心点加入到队列中.
             q = queue.Queue()
             q.put(core_datapoint)
+            # 直至队列中所有的点都被访问了，此时一个cluster就形成了.
             while not q.empty():
                 data_point = q.get()
+                # 标记数据点已经被访问了.
                 data_point.visited = True
+                # 如果数据点是核心点，将其邻域节点加入到队列中.
                 if data_point.is_core_point:
+                    # 设置集群id.
                     data_point.cluster = cluster_index
                     for neighbor_point in data_point.neigh_points:
+                        # 将未访问过的节点加入到队列中，如果不加判断，那么这里将会使得queue不断膨胀，导致死循环.
                         if neighbor_point.visited:
                             continue
                         q.put(neighbor_point)
+                        # 设置邻域节点的集群id.
                         neighbor_point.cluster = cluster_index
+            # 集群id更新（+1）
             cluster_index += 1
         logger.info("complete exec dbscan kernel process")
 
+    #  处理聚类结果数据，用于后续可视化展示.
     def process_result(self) -> dict:
         cluster = {}
         for datapoint in self.data_point_list:
@@ -72,6 +85,7 @@ class DBScan:
             datapoints.append(datapoint)
         return cluster
 
+    # 发现核心数据点.
     def find_core_data_points(self, data_point_list: list) -> list:
         logger.info("start find core data points...")
         core_points_with_neighbors_list = []
@@ -86,6 +100,7 @@ class DBScan:
                     count += 1
                     neighbor_datapoints.append(dst_data_point)
 
+            # 满足邻域节点个数的数据点标记为核心数据点，设置核心数据点标志位is_core_point.
             if count >= self.__neighbor_ele_num:
                 core_points_with_neighbors_list.append(src_data_point)
                 src_data_point.neigh_points = neighbor_datapoints
@@ -114,6 +129,7 @@ class DBScan:
 
         plt.show()
 
+    # 计算欧几里得距离.
     @staticmethod
     def cal_euclid_distance(src_point: list, dst_point: list):
         if len(src_point) != len(dst_point):
@@ -124,6 +140,7 @@ class DBScan:
             pow_sum += pow(src_point[i] - dst_point[i], 2)
         return math.sqrt(pow_sum)
 
+    # 加载数据，此方法为手动实现，可以使用numpy简化操作.
     @staticmethod
     def load_data() -> list:
         logger.info('start read data file, file path is : %s' % data_file_path)
@@ -144,6 +161,7 @@ class DBScan:
         return data_point_list
 
 
+# 执行算法.
 def start():
     conf_file_path = os.path.join(__file__, '..', 'conf', 'dbscan.conf')
     conf_dict = CommonUtils.load_config_to_dict(conf_file_path)
